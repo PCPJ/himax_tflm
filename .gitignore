@@ -1,0 +1,6 @@
+*.o
+arc_gnu_2020.09_prebuilt_elf32_le_linux_install/*
+memory.map
+third_party
+himax_we1_sdk
+image_gen_linux
