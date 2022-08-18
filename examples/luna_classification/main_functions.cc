@@ -22,8 +22,11 @@ limitations under the License.
 #include "tensorflow/lite/micro/micro_interpreter.h"
 #include "tensorflow/lite/micro/micro_mutable_op_resolver.h"
 #include "tensorflow/lite/micro/all_ops_resolver.h"
-// #include "examples/person_detection/person_detect_model_data.h"
+
 #include "examples/luna_classification/classification_model_01.h"
+// #include "examples/luna_classification/classification_model_01_float_fallback.h"
+// #include "examples/luna_classification/classification_model_01_no_quantization.h"
+
 #include "tensorflow/lite/micro/system_setup.h"
 #include "tensorflow/lite/schema/schema_generated.h"
 
@@ -33,6 +36,7 @@ tflite::ErrorReporter* error_reporter = nullptr;
 const tflite::Model* model = nullptr;
 tflite::MicroInterpreter* interpreter = nullptr;
 TfLiteTensor* input = nullptr;
+int8_t* image_data = nullptr;
 
 // In order to use optimized tensorflow lite kernels, a signed int8_t quantized
 // model is preferred over the legacy unsigned model format. This means that
@@ -103,14 +107,53 @@ void setup() {
 
   // Get information about the memory area to use for the model's input.
   input = interpreter->input(0);
+  
+  image_data = new int8_t[kNumCols*kNumRows*kNumChannels];
 }
 
 // The name of this function is important for Arduino compatibility.
 void loop() {
   // Get image from provider.
   if (kTfLiteOk != GetImage(error_reporter, kNumCols, kNumRows, kNumChannels,
-                            input->data.int8)) {
+                            image_data)) {
     TF_LITE_REPORT_ERROR(error_reporter, "Image capture failed.");
+  }
+
+  if (input->type == TfLiteType::kTfLiteUInt8) {
+    void* quanti_param = input->quantization.params;
+    assert(input->quantization.type == TfLiteQuantizationType::kTfLiteAffineQuantization);
+    TfLiteAffineQuantization* quanti_affine_param = static_cast<TfLiteAffineQuantization*>(quanti_param);
+    for (uint i = 0; i < (kNumCols*kNumRows); i+=3) {
+      float r = (float) image_data[i+0];
+      float g = (float) image_data[i+1];
+      float b = (float) image_data[i+2];
+      // ImageNet Normalization
+      r = ((r+128)/255.0 -0.406) / 0.225;
+      g = ((g+128)/255.0 -0.456) / 0.224;
+      b = ((b+128)/255.0 -0.485) / 0.229;
+      // Quantization normalization
+      r = (r / quanti_affine_param->scale->data[0]) + quanti_affine_param->zero_point->data[0];
+      g = (g / quanti_affine_param->scale->data[1]) + quanti_affine_param->zero_point->data[1];
+      b = (b / quanti_affine_param->scale->data[2]) + quanti_affine_param->zero_point->data[2];
+      input->data.uint8[i+0] = (uint8_t)b;
+      input->data.uint8[i+1] = (uint8_t)g;
+      input->data.uint8[i+2] = (uint8_t)r;
+    }
+  } else if (input->type == TfLiteType::kTfLiteFloat32) {
+    for (uint i = 0; i < (kNumCols*kNumRows); i+=3) {
+      float r = (float) image_data[i+0];
+      float g = (float) image_data[i+1];
+      float b = (float) image_data[i+2];
+      // ImageNet Normalization
+      r = ((r+128)/255.0 -0.406) / 0.225;
+      g = ((g+128)/255.0 -0.456) / 0.224;
+      b = ((b+128)/255.0 -0.485) / 0.229;
+      input->data.f[i+0] = b;
+      input->data.f[i+1] = g;
+      input->data.f[i+2] = r;
+    }
+  } else {
+    assert(false);
   }
 
   // Run the model on this input and make sure it succeeds.
