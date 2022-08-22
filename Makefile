@@ -182,6 +182,19 @@ examples/person_detection/main_functions.cc \
 examples/person_detection/model_settings.cc \
 examples/person_detection/person_detect_model_data.cc
 
+LC_SRCS := \
+tensorflow/lite/micro/kernels/arc_mli/scratch_buffers.cc \
+tensorflow/lite/micro/kernels/arc_mli/scratch_buf_mgr.cc \
+tensorflow/lite/micro/kernels/arc_mli/mli_slicers.cc \
+examples/luna_classification/himax_we1_evb/detection_responder.cc \
+examples/luna_classification/himax_we1_evb/image_provider.cc \
+examples/luna_classification/main.cc \
+examples/luna_classification/main_functions.cc \
+examples/luna_classification/model_settings.cc \
+examples/luna_classification/classification_model_01.cc
+# examples/luna_classification/classification_model_01_float_fallback.cc 
+# examples/luna_classification/classification_model_01_no_quantization.cc 
+
 MW_SRCS := \
 tensorflow/lite/micro/kernels/arc_mli/scratch_buffers.cc \
 tensorflow/lite/micro/kernels/arc_mli/scratch_buf_mgr.cc \
@@ -243,6 +256,9 @@ $(patsubst %.cc,%.o,$(patsubst %.c,%.o,$(SRCS)))
 
 PD_OBJS := \
 $(patsubst %.cc,%.o,$(patsubst %.c,%.o,$(PD_SRCS)))
+
+LC_OBJS := \
+$(patsubst %.cc,%.o,$(patsubst %.c,%.o,$(LC_SRCS)))
 
 MW_OBJS := \
 $(patsubst %.cc,%.o,$(patsubst %.c,%.o,$(MW_SRCS)))
@@ -481,6 +497,9 @@ all:
 person_detection_int8: MAP_NAME = person_detection_int8
 person_detection_int8: person_detection_int8.elf
 
+luna_classification: MAP_NAME = luna_classification
+luna_classification: luna_classification.elf
+
 micro_speech: MAP_NAME = micro_speech
 micro_speech: micro_speech.elf
 
@@ -501,6 +520,9 @@ magic_wand.elf : $(OBJS) $(MW_OBJS)
 
 handwriting.elf : $(OBJS) $(HW_OBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $(OBJS) $(HW_OBJS) $(LDFLAGS)
+
+luna_classification.elf : $(OBJS) $(LC_OBJS)
+	$(CXX) $(CXXFLAGS) -o $@ $(OBJS) $(LC_OBJS) $(LDFLAGS)
 
 clean:
 	@echo 'cleaning'
